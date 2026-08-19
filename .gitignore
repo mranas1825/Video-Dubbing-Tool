@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist_electron/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.log
+exports/
+temp/
+scratch/
+DubCraft AI Studio App/

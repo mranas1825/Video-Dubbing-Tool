@@ -1,0 +1,9 @@
+edge-tts
+anthropic
+yt-dlp
+faster-whisper
+demucs
+python-dotenv
+ffmpeg-python
+imageio-ffmpeg
+pydub

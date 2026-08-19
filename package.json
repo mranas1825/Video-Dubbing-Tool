@@ -1,0 +1,62 @@
+{
+  "name": "video-dubbing-tool",
+  "version": "1.0.0",
+  "description": "Multi-Language AI Video Dubbing Desktop Tool",
+  "main": "src/main/main.js",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "cross-env NODE_ENV=development electron .",
+    "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
+    "build": "vite build",
+    "dist": "npm run build && electron-builder --win",
+    "start": "electron ."
+  },
+  "keywords": [
+    "ai",
+    "dubbing",
+    "whisper",
+    "claude",
+    "electron",
+    "ffmpeg",
+    "tts"
+  ],
+  "author": "Antigravity",
+  "license": "ISC",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.dubcraft.ai",
+    "productName": "DubCraft AI",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/renderer/**/*",
+      "src/main/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      "python/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "dir"
+      ],
+      "forceCodeSigning": false
+    }
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^34.3.0",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.2.0"
+  }
+}
