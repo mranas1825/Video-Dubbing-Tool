@@ -130,7 +130,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     for seg in segments:
         seg_start = seg.get("start", 0)
         seg_end = seg.get("end", 0)
+        seg_text = seg.get("text", "").strip()
+        if not seg_text:
+            continue
+
         words = seg.get("words", [])
+
+        # If words list is missing or untranslated, generate synthetic word timings from segment text
+        if karaoke and not words:
+            raw_words = seg_text.split()
+            if raw_words:
+                total_duration = max(0.2, seg_end - seg_start)
+                word_dur = total_duration / len(raw_words)
+                words = []
+                for w_idx, w_str in enumerate(raw_words):
+                    w_s = seg_start + (w_idx * word_dur)
+                    w_e = w_s + word_dur
+                    words.append({"word": w_str, "start": w_s, "end": w_e})
 
         if karaoke and words:
             # Word-by-word Karaoke animation
@@ -138,12 +154,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 w_start = format_ass_timestamp(w.get("start", seg_start))
                 w_end = format_ass_timestamp(w.get("end", seg_end))
                 
-                # Build highlighted text line where current word is highlighted
+                # Build highlighted text line where current active word is highlighted
                 line_parts = []
                 for j, target_w in enumerate(words):
                     w_text = target_w.get("word", "").upper()
                     if j == idx:
-                        # Highlight current word in cyan/yellow accent
+                        # Highlight current word in cyan/yellow accent with bold pop
                         line_parts.append(f"{{\\c{cfg['highlight']}\\b1}}{w_text}{{\\r}}")
                     else:
                         line_parts.append(w_text)
@@ -154,13 +170,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             # Segment level caption
             s_start = format_ass_timestamp(seg_start)
             s_end = format_ass_timestamp(seg_end)
-            text_str = seg.get("text", "").strip().upper()
+            text_str = seg_text.upper()
             events.append(f"Dialogue: 0,{s_start},{s_end},Default,,0,0,0,,{text_str}")
 
     with open(ass_path, "w", encoding="utf-8") as f:
         f.write(header + "\n".join(events) + "\n")
 
     return ass_path
+
 
 def burn_subtitles_to_video(input_video, srt_path, output_video, options=None):
     """
