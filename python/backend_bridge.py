@@ -130,6 +130,16 @@ def process_dubbing_task(config):
 
     send_log("info", f"Started processing video: '{filename}' -> Target Language: '{target_lang}'")
 
+    # If Upload as-is is enabled, skip all editing/dubbing steps and copy directly
+    if settings.get("uploadAsIs", False):
+        send_log("info", "Upload as-is option enabled. Skipping rewrite, voiceover, and captions...")
+        import shutil
+        shutil.copy(video_path, output_video_file)
+        send_update(task_id, video_path, "Done", 100, "done")
+        send_log("success", f"Video exported as-is to: {output_video_file}")
+        return
+
+
     # STEP 1: Extract Audio (15%)
     send_update(task_id, video_path, "Extracting audio track...", 15)
     original_wav = os.path.join(temp_dir, f"{filename}_original.wav")
