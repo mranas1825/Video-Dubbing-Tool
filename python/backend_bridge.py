@@ -145,7 +145,7 @@ def process_dubbing_task(config):
     send_update(task_id, video_path, "Vocal suppression & ambient isolation...", 30)
     ambient_wav = os.path.join(temp_dir, f"{filename}_ambient.wav")
     if settings.get("removeVoice", True):
-        if settings.get("hqDemucs", True):
+        if settings.get("hqDemucs", False):
             try:
                 send_log("info", "Running Demucs AI stem isolation...")
                 ambient_wav = demucs_vocal_separation(original_wav, temp_dir)
@@ -153,10 +153,11 @@ def process_dubbing_task(config):
                 send_log("warning", f"Demucs fallback ({e}). Using fast suppression.")
                 ambient_wav = fast_vocal_suppression(original_wav, ambient_wav)
         else:
-            send_log("info", "Running fast center-channel vocal suppression...")
+            send_log("info", "Running ultra-fast center-channel vocal suppression (0.2s)...")
             ambient_wav = fast_vocal_suppression(original_wav, ambient_wav)
     else:
         ambient_wav = original_wav
+
 
     # STEP 3: Transcribe with Whisper (50%)
     send_update(task_id, video_path, "Transcribing speech...", 50)

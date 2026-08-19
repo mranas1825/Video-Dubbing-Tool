@@ -54,8 +54,9 @@ def demucs_vocal_separation(audio_path, output_dir):
             "-o", output_dir,
             audio_path
         ]
-        # Run Demucs with 90 second timeout for fallback safety
-        subprocess.run(cmd, check=True, timeout=90, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Run Demucs with 10 second timeout for fallback safety
+        subprocess.run(cmd, check=True, timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
         # Locate separated background track
         base_name = os.path.splitext(os.path.basename(audio_path))[0]

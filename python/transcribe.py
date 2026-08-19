@@ -14,13 +14,14 @@ def transcribe_audio(audio_path, accuracy="Balanced", spoken_lang=None):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
     model_map = {
-        "Fast": "base",
-        "Balanced": "small",
-        "High Quality": "large-v3"
+        "Fast": "tiny",
+        "Balanced": "base",
+        "High Quality": "small"
     }
 
-    model_name = model_map.get(accuracy, "small")
-    print(f"[Whisper] Loading faster-whisper model '{model_name}' for accuracy tier '{accuracy}'...", flush=True)
+    model_name = model_map.get(accuracy, "tiny")
+    print(f"[Whisper Ultra-Fast] Loading faster-whisper model '{model_name}' for accuracy tier '{accuracy}'...", flush=True)
+
 
     try:
         from faster_whisper import WhisperModel
