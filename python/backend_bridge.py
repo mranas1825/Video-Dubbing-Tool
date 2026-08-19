@@ -240,8 +240,15 @@ def process_dubbing_task(config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="JSON configuration object")
+    parser.add_argument("--config", required=True, help="JSON configuration object or filepath")
     args = parser.parse_args()
 
-    config_data = json.loads(args.config)
+    raw_config = args.config
+    if os.path.exists(raw_config) and os.path.isfile(raw_config):
+        with open(raw_config, "r", encoding="utf-8") as f:
+            config_data = json.load(f)
+    else:
+        config_data = json.loads(raw_config)
+
     process_dubbing_task(config_data)
+

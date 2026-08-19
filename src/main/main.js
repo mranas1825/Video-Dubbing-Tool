@@ -176,20 +176,27 @@ ipcMain.handle('run-pipeline-task', async (event, taskData) => {
     const pythonExe = getPythonPath();
     const scriptPath = getScriptPath('backend_bridge.py');
 
+    // Create a temporary JSON config file to prevent Windows command line escaping bugs
+    const tempConfigDir = path.join(app.getPath('userData'), 'temp_configs');
+    if (!fs.existsSync(tempConfigDir)) fs.mkdirSync(tempConfigDir, { recursive: true });
+    const configFilePath = path.join(tempConfigDir, `task_${taskData.id || Date.now()}.json`);
+    fs.writeFileSync(configFilePath, JSON.stringify(taskData, null, 2), 'utf8');
+
     if (mainWindow) {
       mainWindow.webContents.send('log-update', {
         type: 'info',
-        text: `Executing task "${taskData.id}" on Python: "${pythonExe}" Script: "${scriptPath}" Video Path: "${taskData.videoPath}"`
+        text: `Executing task "${taskData.id}" on Python: "${pythonExe}" Config: "${configFilePath}"`
       });
     }
 
-    const proc = spawn(pythonExe, [scriptPath, '--config', JSON.stringify(taskData)]);
+    const proc = spawn(pythonExe, [scriptPath, '--config', configFilePath]);
 
     proc.on('error', (err) => {
       const errText = `Failed to spawn dubbing pipeline process (${pythonExe}): ${err.message}`;
       if (mainWindow) mainWindow.webContents.send('log-update', { type: 'error', text: errText });
       reject(err);
     });
+
 
     proc.stdout.on('data', (data) => {
       const lines = data.toString().split('\n');

@@ -167,15 +167,12 @@ def burn_subtitles_to_video(input_video, srt_path, output_video, options=None):
     Burns ASS/SRT captions directly into video using FFmpeg subtitle filter.
     """
     options = options or {}
-    ass_path = srt_path.replace(".srt", ".ass")
-
-    # Read segment data if json available or generate ASS
-    if os.path.exists(srt_path):
-        create_ass_subtitles([{"start": 0, "end": 10, "text": "DubCraft AI Synced Captions"}], ass_path, options)
+    ass_path = srt_path if srt_path.endswith(".ass") else srt_path.replace(".srt", ".ass")
 
     target_sub = ass_path if os.path.exists(ass_path) else srt_path
     if not os.path.exists(target_sub):
         return input_video
+
 
     escaped_sub = os.path.abspath(target_sub).replace("\\", "/").replace(":", "\\:")
 
