@@ -91,8 +91,8 @@ def mix_audio_tracks(original_video, new_tts_audio, ambient_track, output_video,
             output_video
         ]
     else:
-        # Mix TTS voiceover + scaled ambient audio
-        filter_complex = f"[1:a]volume=1.0[tts];[2:a]volume={vol_factor:.2f}[amb];[tts][amb]amix=inputs=2:duration=first[aout]"
+        # Normalize and mix TTS voiceover + scaled ambient audio
+        filter_complex = f"[1:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=1.0[tts];[2:a]aformat=sample_rates=44100:channel_layouts=stereo,volume={vol_factor:.2f}[amb];[tts][amb]amix=inputs=2:duration=first:dropout_transition=2[aout]"
         cmd = [
             get_ffmpeg_cmd(), "-y",
             "-i", original_video,
@@ -100,12 +100,29 @@ def mix_audio_tracks(original_video, new_tts_audio, ambient_track, output_video,
             "-i", ambient_track,
             "-filter_complex", filter_complex,
             "-map", "0:v:0",
-            "-map", "aout",
+            "-map", "[aout]",
             "-c:v", "copy",
             "-c:a", "aac",
             "-shortest",
             output_video
         ]
 
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"[Audio Mix Fallback] Complex mix failed ({e}). Falling back to clean TTS audio overlay...", flush=True)
+        fallback_cmd = [
+            get_ffmpeg_cmd(), "-y",
+            "-i", original_video,
+            "-i", new_tts_audio,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            output_video
+        ]
+        subprocess.run(fallback_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
     return output_video
+
