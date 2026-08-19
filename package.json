@@ -9,7 +9,9 @@
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "build": "vite build",
     "dist": "npm run build && electron-builder --win",
+    "watch:exe": "node scripts/auto_build_watcher.js",
     "start": "electron ."
+
   },
   "keywords": [
     "ai",
