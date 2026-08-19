@@ -3,6 +3,11 @@ import os
 import json
 import argparse
 import time
+
+# Suppress HuggingFace and PyTorch symlink warnings on Windows
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ["PYTHONWARNINGS"] = "ignore"
+
 try:
     from dotenv import load_dotenv
     load_dotenv()

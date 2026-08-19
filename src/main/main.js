@@ -219,8 +219,17 @@ ipcMain.handle('run-pipeline-task', async (event, taskData) => {
     });
 
     proc.stderr.on('data', (data) => {
-      if (mainWindow) mainWindow.webContents.send('log-update', { type: 'error', text: data.toString() });
+      const errStr = data.toString().trim();
+      if (!errStr) return;
+      const isWarning = errStr.includes('UserWarning') || errStr.includes('Warning:') || errStr.includes('symlinks by default') || errStr.includes('HF_TOKEN');
+      if (mainWindow) {
+        mainWindow.webContents.send('log-update', {
+          type: isWarning ? 'info' : 'error',
+          text: errStr
+        });
+      }
     });
+
 
     proc.on('close', (code) => {
       if (code === 0) {
