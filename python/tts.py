@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import asyncio
-import edge_tts
+
 
 # Comprehensive Microsoft Edge-TTS Neural Voice Mapping (Male & Female for 45+ World Languages)
 EDGE_TTS_VOICE_MAP = {
@@ -189,12 +189,19 @@ EDGE_TTS_VOICE_MAP = {
 }
 
 async def generate_edge_tts(text, output_path, language="English", gender="Male"):
+    try:
+        import edge_tts
+    except ImportError:
+        print("[TTS Error] Missing 'edge-tts' package. Please run: pip install edge-tts", flush=True)
+        raise RuntimeError("Missing 'edge-tts' Python dependency.")
+
     lang_voices = EDGE_TTS_VOICE_MAP.get(language, EDGE_TTS_VOICE_MAP["English"])
     voice = lang_voices.get(gender, lang_voices.get("Male", "en-US-ChristopherNeural"))
     print(f"[TTS Engine] Generating free Edge-TTS neural voiceover in '{language}' ({gender}) using voice '{voice}'...", flush=True)
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
     return output_path
+
 
 def generate_elevenlabs_tts(text, output_path, api_key, gender="Male"):
     """Paid ElevenLabs Multilingual v2 API integration."""

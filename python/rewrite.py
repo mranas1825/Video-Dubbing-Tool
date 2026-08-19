@@ -3,7 +3,7 @@ import sys
 import json
 import urllib.request
 import urllib.parse
-import anthropic
+
 
 def translate_free_google(text, target_language="Spanish"):
     """
@@ -74,9 +74,27 @@ def rewrite_script(
             "note": "Free direct translation applied"
         }
 
-    client = anthropic.Anthropic(api_key=effective_api_key)
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=effective_api_key)
+    except ImportError:
+        print("[Claude AI Warning] 'anthropic' package not installed. Using free translation fallback...", flush=True)
+        translated_text = translate_free_google(original_text, target_language)
+        translated_segments = []
+        for seg in segments:
+            seg_text = seg.get("text", "")
+            trans_seg = translate_free_google(seg_text, target_language)
+            new_seg = dict(seg)
+            new_seg["text"] = trans_seg
+            translated_segments.append(new_seg)
+        return {
+            "rewritten_text": translated_text,
+            "segments": translated_segments,
+            "note": "Free translation applied (anthropic package missing)"
+        }
 
     prompt = f"""You are a professional video dubbing scriptwriter and translator.
+
 Original Transcript:
 "{original_text}"
 

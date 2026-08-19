@@ -3,16 +3,28 @@ import os
 import json
 import argparse
 import time
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
-# Load environment variables
-load_dotenv()
+try:
+    from transcribe import transcribe_audio
+    from rewrite import rewrite_script
+    from tts import generate_voiceover
+    from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
+    from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
+except ModuleNotFoundError as e:
+    err_msg = {
+        "type": "log",
+        "log_type": "error",
+        "text": f"Startup Error: Missing Python dependency '{e.name}'. Please run: pip install -r python/requirements.txt",
+        "timestamp": time.strftime("%H:%M:%S")
+    }
+    print(json.dumps(err_msg), flush=True)
+    sys.exit(1)
 
-from transcribe import transcribe_audio
-from rewrite import rewrite_script
-from tts import generate_voiceover
-from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
-from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
 
 def send_update(task_id, video_path, step, progress, status="running"):
     msg = {

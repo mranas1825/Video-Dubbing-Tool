@@ -6,15 +6,18 @@ const { spawn } = require('child_process');
 let mainWindow;
 
 function getPythonPath() {
-  if (app.isPackaged) {
-    const bundledPython = path.join(process.resourcesPath, 'venv', 'Scripts', 'python.exe');
-    if (fs.existsSync(bundledPython)) return bundledPython;
-    return 'python';
+  const possiblePaths = [
+    path.join(__dirname, '../../venv/Scripts/python.exe'),
+    path.join(process.cwd(), 'venv/Scripts/python.exe'),
+    path.join(process.resourcesPath, 'venv/Scripts/python.exe'),
+    path.join(process.resourcesPath, 'app.asar.unpacked/venv/Scripts/python.exe')
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
   }
-  const localVenv = path.join(__dirname, '../../venv/Scripts/python.exe');
-  if (fs.existsSync(localVenv)) return localVenv;
   return 'python';
 }
+
 
 function getScriptPath(scriptName) {
   if (app.isPackaged) {
