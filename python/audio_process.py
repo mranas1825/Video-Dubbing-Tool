@@ -46,16 +46,20 @@ def demucs_vocal_separation(audio_path, output_dir):
     Auto-falls back to fast vocal suppression on error/timeout.
     """
     os.makedirs(output_dir, exist_ok=True)
-    print("[Demucs] Starting High-Quality AI vocal separation...", flush=True)
     try:
+        import torch
+        device_arg = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"[Demucs AI] Starting Vocal Separation on Device: '{device_arg.upper()}'...", flush=True)
         cmd = [
             sys.executable, "-m", "demucs.separate",
             "--two-stems", "vocals",
+            "-d", device_arg,
             "-o", output_dir,
             audio_path
         ]
-        # Run Demucs with 10 second timeout for fallback safety
-        subprocess.run(cmd, check=True, timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Run Demucs with 60 second timeout
+        subprocess.run(cmd, check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 
 
         # Locate separated background track

@@ -25,11 +25,18 @@ def transcribe_audio(audio_path, accuracy="Balanced", spoken_lang=None):
 
     try:
         from faster_whisper import WhisperModel
-        # Use CPU with int8 quantization for high compatibility across all systems
-        model = WhisperModel(model_name, device="cpu", compute_type="int8")
+        import torch
+
+        use_cuda = torch.cuda.is_available()
+        device = "cuda" if use_cuda else "cpu"
+        compute_type = "float16" if use_cuda else "int8"
+
+        print(f"[Whisper ASR Engine] Using Device: '{device.upper()}' (Compute: {compute_type}) | Model: '{model_name}'", flush=True)
+        model = WhisperModel(model_name, device=device, compute_type=compute_type)
 
         lang = spoken_lang.lower() if spoken_lang and spoken_lang != "Auto-Detect" else None
         segments, info = model.transcribe(audio_path, language=lang, beam_size=1, word_timestamps=True)
+
 
         detected_language = info.language if info else (spoken_lang or "en")
 
