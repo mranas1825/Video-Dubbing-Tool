@@ -79,15 +79,33 @@ export default function App() {
     const item = queue.find(q => q.id === videoId);
     if (!item) return;
 
+    let videoPath = item.path;
+
+    // If path is missing or just relative filename (e.g. "2.mp4"), trigger file picker fallback
+    if (!videoPath || (!videoPath.includes('/') && !videoPath.includes('\\'))) {
+      if (window.electronAPI && window.electronAPI.selectFiles) {
+        setLogs(prev => [...prev, { type: 'info', text: `Full path missing for '${item.name}'. Please select the video file...` }]);
+        const picked = await window.electronAPI.selectFiles();
+        if (picked && picked.length > 0) {
+          videoPath = picked[0];
+          setQueue(prev => prev.map(q => q.id === videoId ? { ...q, path: videoPath, name: videoPath.split(/[\\/]/).pop() } : q));
+        } else {
+          setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'failed', currentStep: 'File Path Missing' } : q));
+          return;
+        }
+      }
+    }
+
     setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'running', progress: 5, currentStep: 'Initializing Task' } : q));
 
     const taskPayload = {
       id: item.id,
-      videoPath: item.path,
+      videoPath: videoPath,
       targetLanguage: item.targetLang || settings.targetLanguage,
       fullAutoMode,
       settings
     };
+
 
     if (window.electronAPI) {
       setLogs(prev => [...prev, { type: 'info', text: `Started dubbing task for: ${item.name}` }]);

@@ -43,30 +43,37 @@ def process_dubbing_task(config):
 
     send_log("info", f"Received task ID: {task_id} for path: {raw_video_path}")
 
-    # 1. SMART FILE PATH RESOLUTION (Full D:\ Drive & System Access)
+    # 1. SMART FILE PATH RESOLUTION (System-wide search fallback)
     video_path = raw_video_path
     if not video_path or not os.path.exists(video_path):
         base_name = os.path.basename(raw_video_path) if raw_video_path else ""
         d_drive = "D:\\"
+        user_home = os.path.expanduser("~")
         possible_paths = [
             os.path.abspath(raw_video_path),
+            os.path.join(os.getcwd(), base_name),
+            os.path.join(os.getcwd(), "scratch", base_name),
             os.path.join(d_drive, base_name),
             os.path.join(d_drive, "Dubbed Craft AI", base_name),
-            os.path.join(os.getcwd(), base_name),
-            os.path.join(os.path.expanduser("~/Downloads"), base_name),
-            os.path.join(os.path.expanduser("~/Desktop"), base_name),
-            os.path.join(os.path.expanduser("~/Videos"), base_name)
+            os.path.join(user_home, "Downloads", base_name),
+            os.path.join(user_home, "Desktop", base_name),
+            os.path.join(user_home, "Videos", base_name),
+            os.path.join(user_home, "Documents", base_name),
+            os.path.join(user_home, "Pictures", base_name)
         ]
 
-        # Scan top-level folders on D:\ drive for matching filename
-        try:
-            if os.path.exists(d_drive):
-                for entry in os.listdir(d_drive):
-                    folder = os.path.join(d_drive, entry)
-                    if os.path.isdir(folder):
-                        possible_paths.append(os.path.join(folder, base_name))
-        except Exception:
-            pass
+        # Scan top-level folders on D:\ and C:\Users
+        for root_dir in [d_drive, user_home]:
+            try:
+                if os.path.exists(root_dir):
+                    for entry in os.listdir(root_dir):
+                        folder = os.path.join(root_dir, entry)
+                        if os.path.isdir(folder):
+                            possible_paths.append(os.path.join(folder, base_name))
+                            possible_paths.append(os.path.join(folder, "Downloads", base_name))
+                            possible_paths.append(os.path.join(folder, "Desktop", base_name))
+            except Exception:
+                pass
 
         found_path = None
         for p in possible_paths:
@@ -78,9 +85,10 @@ def process_dubbing_task(config):
             video_path = found_path
             send_log("info", f"Resolved absolute video path to: {video_path}")
         else:
-            send_log("error", f"Video file not found on disk at: '{raw_video_path}'")
+            send_log("error", f"Video file '{base_name}' not found at path '{raw_video_path}'. Please use 'Import Files' button to select the file directly.")
             send_update(task_id, raw_video_path, f"File not found: {base_name}", 5, "failed")
             sys.exit(1)
+
 
     base_dir = os.path.dirname(video_path)
     filename = os.path.splitext(os.path.basename(video_path))[0]
