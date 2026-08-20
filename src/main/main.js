@@ -292,6 +292,12 @@ ipcMain.handle('save-preset', async (event, preset) => {
       presets = [];
     }
   }
+  presets = presets.filter(p => p.name !== preset.name);
+  presets.push(preset);
+  fs.writeFileSync(file, JSON.stringify(presets, null, 2), 'utf8');
+  return presets;
+});
+
 ipcMain.handle('fetch-elevenlabs-voice', async (event, { apiKey, voiceId }) => {
   const https = require('https');
   return new Promise((resolve) => {
