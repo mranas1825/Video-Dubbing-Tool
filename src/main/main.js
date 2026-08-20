@@ -78,12 +78,43 @@ function createWindow() {
     },
   });
 
+  const devUrl = 'http://localhost:5173';
+  const distHtmlPath = path.join(__dirname, '../../dist/renderer/index.html');
+  const rootDistHtmlPath = path.join(process.cwd(), 'dist/renderer/index.html');
+
+  const loadProductionFile = () => {
+    if (fs.existsSync(distHtmlPath)) {
+      mainWindow.loadFile(distHtmlPath);
+    } else if (fs.existsSync(rootDistHtmlPath)) {
+      mainWindow.loadFile(rootDistHtmlPath);
+    } else {
+      console.error('No dist index.html found.');
+    }
+  };
+
   const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';
+
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    let attempts = 0;
+    const tryLoadDevUrl = () => {
+      mainWindow.loadURL(devUrl).catch(() => {
+        attempts++;
+        if (attempts < 6) {
+          setTimeout(tryLoadDevUrl, 500);
+        } else {
+          loadProductionFile();
+        }
+      });
+    };
+    tryLoadDevUrl();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
+    loadProductionFile();
   }
+
+  // Graceful fallback if URL load fails
+  mainWindow.webContents.on('did-fail-load', () => {
+    loadProductionFile();
+  });
 }
 
 app.whenReady().then(() => {
