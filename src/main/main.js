@@ -111,6 +111,14 @@ function createWindow() {
     loadProductionFile();
   }
 
+  // Open DevTools automatically to capture console errors
+  mainWindow.webContents.openDevTools();
+
+  // Forward all renderer console logs & errors directly to stdout
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[RENDERER LOG L${level}] ${message} (${sourceId}:${line})`);
+  });
+
   // Graceful fallback if URL load fails
   mainWindow.webContents.on('did-fail-load', () => {
     loadProductionFile();
