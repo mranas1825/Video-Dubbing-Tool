@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UploadCloud, FolderPlus, Link2, Film, Trash2, Settings2, Sparkles, Volume2, Languages, Check, RefreshCw, Play, Type, MicOff, Crop, SlidersHorizontal, Eye, User, Folder, Plus, FileText } from 'lucide-react';
 
 export const COMPREHENSIVE_LANGUAGES = [
