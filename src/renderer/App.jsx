@@ -140,7 +140,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} settings={settings} setSettings={setSettings} />
       
       <main className="main-area">
         <Header

@@ -379,3 +379,90 @@ ipcMain.handle('fetch-elevenlabs-voice', async (event, { apiKey, voiceId }) => {
   });
 });
 
+ipcMain.handle('validate-api-key', async (event, { service, apiKey }) => {
+  const https = require('https');
+  return new Promise((resolve) => {
+    if (!apiKey || !apiKey.trim()) {
+      return resolve({ success: false, error: 'API key is empty.' });
+    }
+    const key = apiKey.trim();
+
+    if (service === 'elevenlabs') {
+      const req = https.request({
+        hostname: 'api.elevenlabs.io',
+        path: '/v1/user/subscription',
+        method: 'GET',
+        headers: { 'xi-api-key': key }
+      }, (res) => {
+        let body = '';
+        res.on('data', c => body += c);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            try {
+              const data = JSON.parse(body);
+              const used = data.character_count || 0;
+              const limit = data.character_limit || 10000;
+              const percent = Math.min(100, Math.round((used / (limit || 1)) * 100));
+              resolve({
+                success: true,
+                usage: { used, limit, percent }
+              });
+            } catch (e) {
+              resolve({ success: true, usage: null });
+            }
+          } else if (res.statusCode === 401) {
+            resolve({ success: false, error: 'Invalid ElevenLabs API Key.' });
+          } else if (res.statusCode === 402) {
+            resolve({ success: false, error: 'ElevenLabs quota exhausted.' });
+          } else {
+            resolve({ success: false, error: `HTTP ${res.statusCode} Error` });
+          }
+        });
+      });
+      req.on('error', err => resolve({ success: false, error: err.message }));
+      req.end();
+    } else if (service === 'groq') {
+      const req = https.request({
+        hostname: 'api.groq.com',
+        path: '/openai/v1/models',
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${key}` }
+      }, (res) => {
+        if (res.statusCode === 200) {
+          resolve({ success: true });
+        } else if (res.statusCode === 401) {
+          resolve({ success: false, error: 'Invalid Groq API Key.' });
+        } else {
+          resolve({ success: false, error: `HTTP ${res.statusCode} Error` });
+        }
+      });
+      req.on('error', err => resolve({ success: false, error: err.message }));
+      req.end();
+    } else if (service === 'claude') {
+      const req = https.request({
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        }
+      }, (res) => {
+        if (res.statusCode === 200 || res.statusCode === 400) {
+          resolve({ success: true });
+        } else if (res.statusCode === 401 || res.statusCode === 403) {
+          resolve({ success: false, error: 'Invalid Claude API Key.' });
+        } else {
+          resolve({ success: false, error: `HTTP ${res.statusCode} Error` });
+        }
+      });
+      req.on('error', err => resolve({ success: false, error: err.message }));
+      req.write(JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }));
+      req.end();
+    } else {
+      resolve({ success: false, error: 'Unknown service.' });
+    }
+  });
+});
+

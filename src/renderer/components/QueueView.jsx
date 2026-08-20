@@ -222,6 +222,20 @@ export default function QueueView({
     setQueue(prev => prev.filter(item => item.status !== 'done'));
   };
 
+  const [hoveredPreset, setHoveredPreset] = useState(null);
+  const [hoverWordIdx, setHoverWordIdx] = useState(0);
+
+  useEffect(() => {
+    if (!hoveredPreset) {
+      setHoverWordIdx(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setHoverWordIdx(prev => (prev + 1) % 4);
+    }, 450);
+    return () => clearInterval(timer);
+  }, [hoveredPreset]);
+
   // Caption style preset definitions (Matching CapCut Text Models)
   const captionPresets = [
     { id: 'teal_karaoke', label: 'Teal Karaoke Box' },
@@ -231,50 +245,111 @@ export default function QueueView({
     { id: 'bold_caps_box', label: 'Bold Caps Dark' }
   ];
 
-  // Dynamic 5 Caption Presets Live Preview Widget renderer
+  // Dynamic 5 Caption Presets Live Preview Widget renderer (with Hover Animation!)
   const renderCaptionPreview = () => {
-    const currentPreset = settings.captionStyle || 'teal_karaoke';
-    
-    let mainStyle = { fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.45rem', transition: 'all 0.3s ease' };
-    let wordLook = { color: '#FFFFFF' };
-    let wordAt = { color: '#06B6D4' };
-    let wordThis = { color: '#FFFFFF' };
-    let containerBg = '#0B0C10';
+    const currentPreset = hoveredPreset || settings.captionStyle || 'teal_karaoke';
+    const words = ["LOOK", "AT", "THIS", "NOW"];
+    const activeIndex = hoveredPreset ? hoverWordIdx : 1;
 
-    if (currentPreset === 'teal_karaoke') {
-      containerBg = 'rgba(0,0,0,0.85)';
-      wordLook = { color: '#FFFFFF', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.4)' };
-      wordAt = { color: '#FFFF00', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.5)', transform: 'scale(1.15)', display: 'inline-block' };
-      wordThis = { color: '#FFFFFF', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.4)' };
-    } else if (currentPreset === 'classic_white') {
-      wordLook = { color: '#FFFFFF', textShadow: '0 2px 4px rgba(0,0,0,0.8)' };
-      wordAt = { color: '#FACC15', textShadow: '0 2px 4px rgba(0,0,0,0.8)', transform: 'scale(1.18)', display: 'inline-block' };
-      wordThis = { color: '#FFFFFF', textShadow: '0 2px 4px rgba(0,0,0,0.8)' };
-    } else if (currentPreset === 'yellow_stroke') {
-      wordLook = { color: '#FACC15', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000' };
-      wordAt = { color: '#FFFFFF', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000', transform: 'scale(1.18)', display: 'inline-block' };
-      wordThis = { color: '#FACC15', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000' };
-    } else if (currentPreset === 'white_box') {
-      containerBg = 'rgba(0, 0, 0, 0.95)';
-      wordLook = { color: '#FFFFFF', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' };
-      wordAt = { color: '#FACC15', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid #FACC15', transform: 'scale(1.1)', display: 'inline-block' };
-      wordThis = { color: '#FFFFFF', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' };
-    } else if (currentPreset === 'bold_caps_box') {
-      containerBg = 'rgba(17,17,17,0.95)';
-      wordLook = { color: '#FFFFFF', background: 'rgba(30,30,30,0.8)', padding: '3px 8px', borderRadius: '4px' };
-      wordAt = { color: '#FACC15', background: 'rgba(30,30,30,0.9)', padding: '3px 8px', borderRadius: '4px', transform: 'scale(1.15)', display: 'inline-block' };
-      wordThis = { color: '#FFFFFF', background: 'rgba(30,30,30,0.8)', padding: '3px 8px', borderRadius: '4px' };
-    }
+    let containerBg = 'rgba(11, 12, 16, 0.95)';
+    let mainStyle = {
+      fontSize: '1.15rem',
+      fontWeight: 900,
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      display: 'flex',
+      justify: 'center',
+      alignItems: 'center',
+      gap: '0.45rem',
+      transition: 'all 0.3s ease'
+    };
+
+    const getWordStyle = (word, index) => {
+      const isActive = index === activeIndex;
+
+      if (currentPreset === 'teal_karaoke') {
+        if (isActive) {
+          return {
+            color: '#FFFF00',
+            background: '#00D9B3',
+            padding: '3px 8px',
+            borderRadius: '4px',
+            boxShadow: '0 2px 12px rgba(0,217,179,0.6)',
+            transform: 'scale(1.15)',
+            transition: 'transform 0.15s ease',
+            display: 'inline-block'
+          };
+        }
+        return {
+          color: '#FFFFFF',
+          background: '#00D9B3',
+          padding: '3px 8px',
+          borderRadius: '4px',
+          boxShadow: '0 2px 8px rgba(0,217,179,0.3)',
+          transition: 'transform 0.15s ease',
+          display: 'inline-block'
+        };
+      } else if (currentPreset === 'classic_white') {
+        return {
+          color: isActive ? '#FACC15' : '#FFFFFF',
+          textShadow: '0 2px 4px rgba(0,0,0,0.9)',
+          transform: isActive ? 'scale(1.15)' : 'scale(1)',
+          transition: 'transform 0.15s ease',
+          display: 'inline-block'
+        };
+      } else if (currentPreset === 'yellow_stroke') {
+        return {
+          color: isActive ? '#FFFFFF' : '#FACC15',
+          WebkitTextStroke: '1px #000000',
+          textShadow: '2px 2px 0 #000',
+          transform: isActive ? 'scale(1.15)' : 'scale(1)',
+          transition: 'transform 0.15s ease',
+          display: 'inline-block'
+        };
+      } else if (currentPreset === 'white_box') {
+        return {
+          color: isActive ? '#FACC15' : '#FFFFFF',
+          background: '#000000',
+          padding: '3px 8px',
+          borderRadius: '4px',
+          border: isActive ? '1px solid #FACC15' : '1px solid rgba(255,255,255,0.2)',
+          transform: isActive ? 'scale(1.12)' : 'scale(1)',
+          transition: 'transform 0.15s ease',
+          display: 'inline-block'
+        };
+      } else if (currentPreset === 'bold_caps_box') {
+        return {
+          color: isActive ? '#FACC15' : '#FFFFFF',
+          background: 'rgba(30,30,30,0.85)',
+          padding: '3px 8px',
+          borderRadius: '4px',
+          transform: isActive ? 'scale(1.15)' : 'scale(1)',
+          transition: 'transform 0.15s ease',
+          display: 'inline-block'
+        };
+      }
+      return { color: '#FFFFFF' };
+    };
 
     return (
-      <div style={{ padding: '1rem 0.85rem', background: containerBg, borderRadius: '10px', textAlign: 'center', border: '1px dashed rgba(255,107,0,0.4)', marginTop: '0.2rem' }}>
-        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-          LIVE CAPTION PREVIEW ({currentPreset.toUpperCase()})
+      <div style={{
+        padding: '0.9rem 0.85rem',
+        background: containerBg,
+        borderRadius: '10px',
+        textAlign: 'center',
+        border: hoveredPreset ? '1px dashed #00D9B3' : '1px dashed rgba(255,107,0,0.4)',
+        marginTop: '0.2rem',
+        transition: 'all 0.2s ease'
+      }}>
+        <div style={{ fontSize: '0.65rem', color: hoveredPreset ? '#00D9B3' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.45rem', fontWeight: 700 }}>
+          {hoveredPreset ? `✨ PREVIEWING: ${hoveredPreset.toUpperCase()} (HOVER ANIMATION ACTIVE)` : `LIVE CAPTION PREVIEW (${currentPreset.toUpperCase()})`}
         </div>
         <div style={mainStyle}>
-          <span style={wordLook}>LOOK</span>
-          <span style={wordAt}>AT</span>
-          <span style={wordThis}>THIS</span>
+          {words.map((word, idx) => (
+            <span key={idx} style={getWordStyle(word, idx)}>
+              {word}
+            </span>
+          ))}
         </div>
       </div>
     );
@@ -736,6 +811,93 @@ export default function QueueView({
                 ))}
               </select>
             </div>
+
+            {/* FIX 1: Free TTS Voice Gender Selector directly inside Transcript & Script card */}
+            <div style={{ marginTop: '0.2rem', paddingTop: '0.5rem', borderTop: '1px dashed rgba(255,255,255,0.08)' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
+                Free TTS Voice Gender Selection
+              </label>
+              <div style={{ display: 'flex', gap: '0.85rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                  <input
+                    type="radio"
+                    name="voiceGenderHome"
+                    value="Male"
+                    checked={settings.voiceGender === 'Male' || !settings.voiceGender}
+                    onChange={() => setSettings({ ...settings, voiceGender: 'Male' })}
+                    style={{ accentColor: '#FF6B00' }}
+                  />
+                  ♂️ Male (Default)
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                  <input
+                    type="radio"
+                    name="voiceGenderHome"
+                    value="Female"
+                    checked={settings.voiceGender === 'Female'}
+                    onChange={() => setSettings({ ...settings, voiceGender: 'Female' })}
+                    style={{ accentColor: '#FF6B00' }}
+                  />
+                  ♀️ Female
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* FIX 2: ElevenLabs Custom Voice Card (Positioned directly BELOW Transcript & Script card) */}
+          <div style={{ padding: '0.85rem', background: 'rgba(0,0,0,0.25)', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Sparkles size={15} color="#FF6B00" /> ElevenLabs Custom Voice
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Cloned voice synthesis (reuses Sidebar ElevenLabs Key)</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.useElevenLabs || false}
+                onChange={(e) => setSettings({ ...settings, useElevenLabs: e.target.checked })}
+                style={{ width: 18, height: 18, accentColor: '#FF6B00', cursor: 'pointer' }}
+              />
+            </div>
+
+            {settings.useElevenLabs && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', background: 'rgba(0,0,0,0.3)', padding: '0.75rem', borderRadius: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Voice ID</label>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
+                      value={settings.elevenLabsVoiceId || ''}
+                      onChange={(e) => setSettings({ ...settings, elevenLabsVoiceId: e.target.value })}
+                      onBlur={() => { if (settings.elevenLabsVoiceId) handleFetchVoiceDetails(); }}
+                      style={{ fontSize: '0.78rem', padding: '0.4rem' }}
+                    />
+                    <button className="btn btn-secondary" onClick={handleFetchVoiceDetails} disabled={fetchingVoice} style={{ padding: '0.35rem 0.65rem', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                      {fetchingVoice ? <RefreshCw className="spin" size={12} /> : 'Fetch Details'}
+                    </button>
+                  </div>
+                </div>
+
+                {voiceError && (
+                  <div style={{ fontSize: '0.7rem', color: '#FCA5A5', background: 'rgba(239,68,68,0.15)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
+                    ⚠️ {voiceError}
+                  </div>
+                )}
+
+                {voiceDetails && (
+                  <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>
+                    <div style={{ fontWeight: 700, color: '#6EE7B7', marginBottom: '0.15rem' }}>🗣️ {voiceDetails.name} ({voiceDetails.category || 'Custom'})</div>
+                    {voiceDetails.preview_url && (
+                      <audio src={voiceDetails.preview_url} controls style={{ height: '24px', width: '100%', marginTop: '0.25rem' }} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Card 5: AI script rewrite (Matching Screenshot 1!) */}
@@ -929,25 +1091,33 @@ export default function QueueView({
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Style Preset</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                {captionPresets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    className="btn"
-                    onClick={() => setSettings({ ...settings, captionStyle: preset.id })}
-                    style={{
-                      padding: '0.45rem 0.6rem',
-                      fontSize: '0.75rem',
-                      background: (settings.captionStyle || 'Hormozi Bold') === preset.id ? '#FF6B00' : 'rgba(255,255,255,0.06)',
-                      color: 'white',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      textAlign: 'center',
-                      fontWeight: 700
-                    }}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+                {captionPresets.map((preset) => {
+                  const isSelected = (settings.captionStyle || 'teal_karaoke') === preset.id;
+                  const isHovered = hoveredPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      className="btn"
+                      onClick={() => setSettings({ ...settings, captionStyle: preset.id })}
+                      onMouseEnter={() => setHoveredPreset(preset.id)}
+                      onMouseLeave={() => setHoveredPreset(null)}
+                      style={{
+                        padding: '0.45rem 0.6rem',
+                        fontSize: '0.75rem',
+                        background: isSelected ? '#FF6B00' : isHovered ? 'rgba(0,217,179,0.2)' : 'rgba(255,255,255,0.06)',
+                        color: 'white',
+                        border: isSelected ? '2px solid #FF6B00' : isHovered ? '1px solid #00D9B3' : '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        boxShadow: isSelected ? '0 0 10px rgba(255,107,0,0.4)' : isHovered ? '0 0 8px rgba(0,217,179,0.4)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

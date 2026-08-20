@@ -1,0 +1,374 @@
+From ccf89004f7e0861c61811205a21342ee4333564d Mon Sep 17 00:00:00 2001
+From: Manus Agent <agent@manus.im>
+Date: Wed, 19 Aug 2026 09:04:51 +0000
+Subject: [PATCH] =?UTF-8?q?fix:=20resolve=20silent=205%=20task=20failure?=
+ =?UTF-8?q?=20=E2=80=94=20lazy=20Python=20imports,=20clear=20dependency=20?=
+ =?UTF-8?q?error,=20exit-code=20diagnostics,=20and=20dependency=20checker?=
+ =?UTF-8?q?=20script?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- backend_bridge.py: move heavy module imports inside process_dubbing_task (lazy imports)
+  so a missing package (anthropic/edge_tts/faster-whisper/demucs) no longer crashes the
+  process before any progress is reported; instead a friendly FIX message is sent to the
+  Console and the process exits with code 2
+- main.js: detect ENOENT (missing Python interpreter) with a clear install message;
+  propagate the exit code to the renderer
+- App.jsx: start progress at 0% instead of hardcoded 5%; show exit code in the FAILED
+  state so failures are diagnosable
+- python/check_dependencies.py: new pre-flight checker that verifies every required
+  package and prints exact install commands
+- README: added step 2.5 (run the dependency checker before launching)
+---
+ DIAGNOSIS_REPORT.md          | 94 ++++++++++++++++++++++++++++++++++++
+ README.md                    | 10 ++++
+ python/backend_bridge.py     | 48 +++++++++++++-----
+ python/check_dependencies.py | 71 +++++++++++++++++++++++++++
+ src/main/main.js             | 14 +++++-
+ src/renderer/App.jsx         | 11 +++--
+ 6 files changed, 232 insertions(+), 16 deletions(-)
+ create mode 100644 DIAGNOSIS_REPORT.md
+ create mode 100644 python/check_dependencies.py
+
+diff --git a/DIAGNOSIS_REPORT.md b/DIAGNOSIS_REPORT.md
+new file mode 100644
+index 0000000..17304be
+--- /dev/null
++++ b/DIAGNOSIS_REPORT.md
+@@ -0,0 +1,94 @@
++# Video Dubbing Tool (DubCraft AI) — Failure Diagnosis Report
++
++**Issue:** Video upload karne ke baad process start karte hi task `FAILED` ho jata hai — progress 5% par ruk kar fail ho jata hai.
++
++## Summary (Khulasa)
++
++Maine poora repository clone karke code review kiya aur **Python backend ko ek clean environment mein test karke asli error reproduce bhi kiya**. Problem **frontend (React/Electron) mein nahi hai** — problem yeh hai ke Electron jab `backend_bridge.py` ko Python process ke taur par spawn karta hai, toh woh process **task shuru hone se pehle hi crash ho jata hai**. Renderer sirf 5% par "Initializing Task" set karta hai (`App.jsx` line 99), aur jab Python process exit code `1` ke saath band ho jata hai, toh Electron usay `FAILED` mark kar deta hai. Isliye aapko hamesha 5% par fail nazar aata hai.
++
++## Root Cause (Asli Wajah) — Reproduce ki gayi
++
++Jab maine bina dependencies install kiye pipeline chalayi, toh yeh exact error mila:
++
++```
++ModuleNotFoundError: No module named 'anthropic'
++EXIT CODE: 1
++```
++
++Reason yeh hai ke `backend_bridge.py` ke **top par sabhi AI modules eager-import hoti hain**:
++
++| Module | Required Package | Import Location |
++|---|---|---|
++| `transcribe.py` | `faster-whisper` | `backend_bridge.py` line 11 |
++| `rewrite.py` | `anthropic` (Claude SDK) | `rewrite.py` line 6 |
++| `tts.py` | `edge-tts` | `tts.py` line 5 |
++| `audio_process.py` | `imageio-ffmpeg`, `demucs` | audio separation |
++| `backend_bridge.py` | `python-dotenv` | line 6 |
++
++Note karein ke Claude AI (`anthropic`) aur Edge-TTS (`edge_tts`) toh app ke andar **optional** hain (agar key nahi di toh free fallback use hoga), lekin unki Python packages **unconditionally top par import hoti hain**. Matlab agar aapke Python environment mein `pip install -r python/requirements.txt` nahi chala, ya galat Python interpreter use ho raha hai, toh process **task code tak pohanchne se pehle hi mar jata hai** — aur Electron ko sirf itna pata chalta hai ke process fail hua, isliye 5% FAILED.
++
++## Secondary Causes (Doosri Mumkin Wajoohat)
++
++1. **Python interpreter path issue (Packaged EXE):** `main.js` packaged app mein `resources/venv/Scripts/python.exe` dhundta hai, lekin `electron-builder` config (`package.json` lines 37-39) sirf `python/**/*` scripts bundle karta hai — **venv ya Python interpreter bundle hi nahi hota**. Agar aap `.exe` packager mein chala rahe hain aur system mein Python nahi hai, toh yeh guarantee fail hoga.
++2. **Video file path nahi mili:** `backend_bridge.py` lines 48-90 mein agar video path resolve nahi hoti (sirf filename jaise `2.mp4` mila, ya file kisi aur jagah hai), toh woh explicitly **progress 5, status "failed" send karke `sys.exit(1)`** karta hai — yeh bhi bilkul waisa hi 5% FAILED deta hai.
++3. **FFmpeg missing:** Audio extraction step 15% par hai, lekin `extract_audio` ke paas fallback hai, isliye yeh 5% failure ki wajah nahi hoti — 5% fail hone ka matlab process **step 1 tak pohancha hi nahi**.
++
++## Proof (Saboot)
++
++Console tab (app ke andar `Console` section) kholiye — wahan **red error messages** honge jo `proc.stderr` se aate hain. Wahan aapko `ModuleNotFoundError: No module named 'anthropic'` ya `No module named 'edge_tts'` dikhega. Yehi aapke 5% FAILED ka exact message hoga.
++
++## Fix (Hal)
++
++### Agar aap user hain (app use kar rahe hain):
++
++1. App ke **Console tab** mein jayein — wahan asli Python error likha hoga.
++2. Apne project folder mein Python venv activate karein aur dependencies install karein:
++   ```bash
++   python -m venv venv
++   venv\Scripts\Activate.ps1        # Windows PowerShell
++   pip install -r python/requirements.txt
++   ```
++3. Confirm karein ke `venv/Scripts/python.exe` exist karta hai (main.js yahi dhundta hai).
++4. **FFmpeg** system PATH mein installed hona chahiye.
++5. Agar **Packaged EXE** chala rahe hain, toh usay delete karke `npm run dev` se development mode mein chalayein (Launcher `.bat` file `npx electron .` fallback use karti hai).
++
++### Agar aap developer hain (code fix karna chahte hain):
++
++**Fix 1 — Lazy imports (Recommended):** `backend_bridge.py` mein top-level imports hata kar andar move karein:
++
++```python
++def process_dubbing_task(config):
++    from transcribe import transcribe_audio
++    from rewrite import rewrite_script
++    from tts import generate_voiceover
++    from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
++    from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
++    # ... rest of code
++```
++
++**Fix 2 — Friendly startup error:** `backend_bridge.py` ke top par ek try/except block add karein jo missing dependency ka clear message bheje taake Console mein sahi error dikhe:
++
++```python
++try:
++    from transcribe import transcribe_audio
++    # ... other imports
++except ModuleNotFoundError as e:
++    msg = {"type": "log", "log_type": "error",
++           "text": f"Missing Python dependency: {e}. Run: pip install -r python/requirements.txt",
++           "timestamp": time.strftime("%H:%M:%S")}
++    print(json.dumps(msg), flush=True)
++    sys.exit(2)
++```
++
++**Fix 3 — 5% ki jagah 0% on spawn failure:** `main.js` mein spawn se pehle progress 5 set na ho; agar Python process 5 seconds mein kuch output na bheje toh clear error log dikhayein.
++
++**Fix 4 — Packaged EXE ke liye:** `package.json` mein `extraResources` ke saath ek embedded Python (e.g., `python-embed` Windows embeddable zip) include karein, ya docs mein clearly likhein ke Python + FFmpeg system install hona zaroori hai.
++
++## Conclusion
++
++| Question | Answer |
++|---|---|
++| Fail kyun hota hai? | Python backend (`backend_bridge.py`) start hote hi crash ho jata hai — missing `anthropic`/`edge_tts`/`faster-whisper` packages ya galat Python interpreter ki wajah se |
++| 5% hi kyun? | Renderer task start hote hi hardcoded 5% set karta hai, aur process ka pehla progress update (15%) kabhi aata hi nahi |
++| Frontend problem hai? | Nahi — Electron/React theek kaam kar raha hai |
++| Konsa step fail hota hai? | Koi bhi processing step nahi — **setup/startup step** hi fail hota hai |
+diff --git a/README.md b/README.md
+index 2164a68..b0561cc 100644
+--- a/README.md
++++ b/README.md
+@@ -54,6 +54,16 @@ source venv/bin/activate
+ pip install -r python/requirements.txt
+ ```
+ 
++#### ✅ 2.5 Verify Your Setup (Recommended)
++
++Run the built-in dependency checker **before** launching the app. If anything is missing it will print the exact fix:
++
++```bash
++python python/check_dependencies.py
++```
++
++If it prints `RESULT: ALL GOOD`, your environment is ready. If a package fails, it tells you exactly what to install.
++
+ ---
+ 
+ ### ⚡ 3. Running the App
+diff --git a/python/backend_bridge.py b/python/backend_bridge.py
+index a4894d8..f90c015 100644
+--- a/python/backend_bridge.py
++++ b/python/backend_bridge.py
+@@ -3,21 +3,34 @@ import os
+ import json
+ import argparse
+ import time
+-from dotenv import load_dotenv
+-
+-# Load environment variables
+-load_dotenv()
+-
+-from transcribe import transcribe_audio
+-from rewrite import rewrite_script
+-from tts import generate_voiceover
+-from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
+-from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
++# FIX: Make dotenv optional — if even python-dotenv is missing, we still want
++# the process to start and report a clear error instead of crashing silently at 5%.
++try:
++    from dotenv import load_dotenv
++    load_dotenv()
++except ImportError:
++    pass
++
++# FIX: Lazy imports — previously all modules were imported eagerly at the top,
++# which crashed the whole process with ModuleNotFoundError (e.g. missing 'anthropic',
++# 'edge_tts', 'faster-whisper') BEFORE any task progress was reported.
++# Electron could only see exit code 1, so the task always showed as FAILED at 5%.
++# Now imports happen inside process_dubbing_task so the app can report a clear error.
++
++def send_missing_dep_error(dep_error):
++    """Sends a clear, user-readable error to the Electron console when a dependency is missing."""
++    send_log("error", f"STARTUP FAILED — Missing Python dependency: {dep_error.name}")
++    send_log("error", "FIX: Open a terminal in the project folder and run:")
++    send_log("error", "  python -m venv venv")
++    send_log("error", "  venv\\Scripts\\Activate.ps1  (on Windows PowerShell)")
++    send_log("error", "  pip install -r python/requirements.txt")
++    send_update(None, "", "Startup failed: missing dependency", 0, "failed")
++    sys.exit(2)
+ 
+ def send_update(task_id, video_path, step, progress, status="running"):
+     msg = {
+         "type": "progress",
+-        "id": task_id,
++        "id": task_id or "unknown",
+         "path": video_path,
+         "step": step,
+         "progress": progress,
+@@ -35,6 +48,18 @@ def send_log(log_type, text):
+     print(json.dumps(msg), flush=True)
+ 
+ def process_dubbing_task(config):
++    # FIX: Import pipeline modules HERE (lazily) so that a missing dependency
++    # can be caught and reported as a clear error instead of a hard crash.
++    try:
++        from transcribe import transcribe_audio
++        from rewrite import rewrite_script
++        from tts import generate_voiceover
++        from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
++        from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
++    except ModuleNotFoundError as e:
++        send_missing_dep_error(e)
++        return
++
+     task_id = config.get("id", "task")
+     raw_video_path = config.get("videoPath") or config.get("path") or ""
+     target_lang = config.get("targetLanguage", "Spanish")
+@@ -86,6 +111,7 @@ def process_dubbing_task(config):
+             send_log("info", f"Resolved absolute video path to: {video_path}")
+         else:
+             send_log("error", f"Video file '{base_name}' not found at path '{raw_video_path}'. Please use 'Import Files' button to select the file directly.")
++            send_log("error", "Searched locations: current folder, D:\\, Downloads, Desktop, Videos, Documents and top-level subfolders. Use 'Import Files' with the native file picker to guarantee a valid full path.")
+             send_update(task_id, raw_video_path, f"File not found: {base_name}", 5, "failed")
+             sys.exit(1)
+ 
+diff --git a/python/check_dependencies.py b/python/check_dependencies.py
+new file mode 100644
+index 0000000..e35717d
+--- /dev/null
++++ b/python/check_dependencies.py
+@@ -0,0 +1,71 @@
++"""
++Dependency checker for the DubCraft AI video dubbing pipeline.
++
++Run this BEFORE starting the app to verify that the Python environment is set up
++correctly and all required packages are installed. It prints a PASS/FAIL status
++for every dependency used by backend_bridge.py and its modules.
++
++Usage:
++    python python/check_dependencies.py
++"""
++import sys
++import subprocess
++
++CHECKS = [
++    # (module_name, pip_package_name, human description)
++    ("dotenv", "python-dotenv", "Environment variables loader"),
++    ("edge_tts", "edge-tts", "Free neural text-to-speech (Microsoft Edge)"),
++    ("anthropic", "anthropic", "Claude AI script rewrite (optional but imported)"),
++    ("faster_whisper", "faster-whisper", "Whisper speech transcription"),
++    ("demucs", "demucs", "AI vocal/ambient separation"),
++    ("imageio_ffmpeg", "imageio-ffmpeg", "Bundled FFmpeg binary"),
++    ("yt_dlp", "yt-dlp", "Video link downloader"),
++    ("pydub", "pydub", "Audio manipulation"),
++]
++
++def check_ffmpeg():
++    try:
++        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
++        return True, "FFmpeg found on PATH"
++    except FileNotFoundError:
++        return False, "FFmpeg NOT found on PATH — install FFmpeg and add it to PATH"
++    except Exception:
++        return False, "FFmpeg check failed"
++
++def main():
++    print("=" * 70)
++    print("  DubCraft AI — Python Dependency Checker")
++    print(f"  Python: {sys.version}  ({sys.executable})")
++    print("=" * 70)
++
++    missing = []
++    for module, package, desc in CHECKS:
++        try:
++            __import__(module)
++            print(f"  [PASS] {package:<22} ({desc})")
++        except ImportError:
++            missing.append(package)
++            print(f"  [FAIL] {package:<22} ({desc})")
++
++    ffmpeg_ok, ffmpeg_msg = check_ffmpeg()
++    print(f"  [{'PASS' if ffmpeg_ok else 'FAIL'}] {'ffmpeg':<22} ({ffmpeg_msg})")
++
++    print("=" * 70)
++    if missing or not ffmpeg_ok:
++        print("RESULT: NOT READY — some dependencies are missing.\n")
++        print("To fix, run in the project root folder:")
++        print("  python -m venv venv")
++        if sys.platform == "win32":
++            print("  venv\\Scripts\\Activate.ps1   (Windows PowerShell)")
++        else:
++            print("  source venv/bin/activate     (Linux/macOS)")
++        print("  pip install -r python/requirements.txt")
++        if not ffmpeg_ok:
++            print("  Also install FFmpeg: https://ffmpeg.org/download.html")
++        sys.exit(1)
++    else:
++        print("RESULT: ALL GOOD — environment is ready to run the dubbing pipeline.")
++        sys.exit(0)
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/main/main.js b/src/main/main.js
+index 962552c..d6295a1 100644
+--- a/src/main/main.js
++++ b/src/main/main.js
+@@ -191,10 +191,15 @@ ipcMain.handle('run-pipeline-task', async (event, taskData) => {
+ 
+     const proc = spawn(pythonExe, [scriptPath, '--config', configFilePath]);
+ 
++    // FIX: Detect the common case where Python itself is missing (ENOENT) and give
++    // the user a clear action message instead of a cryptic failure at 5%.
+     proc.on('error', (err) => {
+-      const errText = `Failed to spawn dubbing pipeline process (${pythonExe}): ${err.message}`;
++      const isNotFound = err.code === 'ENOENT';
++      const errText = isNotFound
++        ? `Python interpreter not found at "${pythonExe}". Install Python 3.10+ (add to PATH) or place venv at project root, then restart the app.`
++        : `Failed to spawn dubbing pipeline process (${pythonExe}): ${err.message}`;
+       if (mainWindow) mainWindow.webContents.send('log-update', { type: 'error', text: errText });
+-      reject(err);
++      reject(new Error(errText));
+     });
+ 
+ 
+@@ -223,6 +228,11 @@ ipcMain.handle('run-pipeline-task', async (event, taskData) => {
+       if (code === 0) {
+         resolve({ success: true });
+       } else {
++        // FIX: Pass the exit code back so the UI can show a diagnosable error.
++        // Exit code 2 = clear dependency/startup error already logged to Console.
++        if (code === 2 && mainWindow) {
++          mainWindow.webContents.send('log-update', { type: 'error', text: `Pipeline startup failed. Open the Console tab and follow the printed FIX instructions.` });
++        }
+         resolve({ success: false, code });
+       }
+     });
+diff --git a/src/renderer/App.jsx b/src/renderer/App.jsx
+index 41f9ee5..f5d4c5e 100644
+--- a/src/renderer/App.jsx
++++ b/src/renderer/App.jsx
+@@ -96,7 +96,10 @@ export default function App() {
+       }
+     }
+ 
+-    setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'running', progress: 5, currentStep: 'Initializing Task' } : q));
++    // FIX: Set 'running' immediately but keep progress 0 until the Python process
++    // confirms it actually started. Previously this hardcoded 5% here is why
++    // tasks that crashed at startup always showed 'FAILED' stuck at exactly 5%.
++    setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'running', progress: 0, currentStep: 'Initializing Task' } : q));
+ 
+     const taskPayload = {
+       id: item.id,
+@@ -115,8 +118,10 @@ export default function App() {
+           setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'done', progress: 100, currentStep: 'Completed' } : q));
+           setLogs(prev => [...prev, { type: 'success', text: `Dubbing completed for: ${item.name}` }]);
+         } else {
+-          setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'failed', currentStep: 'Failed' } : q));
+-          setLogs(prev => [...prev, { type: 'error', text: `Dubbing failed for: ${item.name}` }]);
++          // FIX: Include the Python exit code in the error so failure is diagnosable.
++          // Check the Console tab for the exact Python traceback (stderr).
++          setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'failed', currentStep: `Failed (exit code ${res.code ?? 'unknown'})` } : q));
++          setLogs(prev => [...prev, { type: 'error', text: `Dubbing failed for: ${item.name} (exit code ${res.code ?? 'unknown'}). Check the Console tab for the Python error.` }]);
+         }
+       } catch (err) {
+         setQueue(prev => prev.map(q => q.id === videoId ? { ...q, status: 'failed', currentStep: err.message } : q));
+-- 
+2.43.0
+
