@@ -292,8 +292,84 @@ ipcMain.handle('save-preset', async (event, preset) => {
       presets = [];
     }
   }
-  presets = presets.filter(p => p.name !== preset.name);
-  presets.push(preset);
-  fs.writeFileSync(file, JSON.stringify(presets, null, 2), 'utf8');
-  return presets;
+ipcMain.handle('fetch-elevenlabs-voice', async (event, { apiKey, voiceId }) => {
+  const https = require('https');
+  return new Promise((resolve) => {
+    if (!voiceId || !voiceId.trim()) {
+      return resolve({ success: false, error: 'Voice ID cannot be empty.' });
+    }
+    const cleanId = voiceId.trim();
+
+    const fetchDirect = () => {
+      const options = {
+        hostname: 'api.elevenlabs.io',
+        path: `/v1/voices/${cleanId}`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      };
+      if (apiKey && apiKey.trim()) {
+        options.headers['xi-api-key'] = apiKey.trim();
+      }
+
+      const req = https.request(options, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            if (res.statusCode === 200) {
+              resolve({ success: true, voice: data });
+            } else if (res.statusCode === 401 && !apiKey) {
+              fetchPublicList();
+            } else if (res.statusCode === 401) {
+              resolve({ success: false, error: 'Invalid API Key — check your ElevenLabs account.' });
+            } else if (res.statusCode === 404) {
+              resolve({ success: false, error: `Invalid Voice ID '${cleanId}' — voice not found.` });
+            } else if (res.statusCode === 402) {
+              resolve({ success: false, error: 'ElevenLabs credits exhausted for this account.' });
+            } else {
+              resolve({ success: false, error: data.detail?.message || `ElevenLabs API error (HTTP ${res.statusCode})` });
+            }
+          } catch (e) {
+            resolve({ success: false, error: `Failed to parse response: ${e.message}` });
+          }
+        });
+      });
+
+      req.on('error', (err) => resolve({ success: false, error: `Network error: ${err.message}` }));
+      req.end();
+    };
+
+    const fetchPublicList = () => {
+      const options = {
+        hostname: 'api.elevenlabs.io',
+        path: `/v1/voices`,
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      };
+      const req = https.request(options, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            const voices = data.voices || [];
+            const found = voices.find(v => v.voice_id === cleanId);
+            if (found) {
+              resolve({ success: true, voice: found });
+            } else {
+              resolve({ success: false, error: `Voice ID '${cleanId}' not found in public library. Please enter your ElevenLabs API Key to fetch private cloned voices.` });
+            }
+          } catch (e) {
+            resolve({ success: false, error: `Failed to parse voices list: ${e.message}` });
+          }
+        });
+      });
+      req.on('error', (err) => resolve({ success: false, error: `Network error: ${err.message}` }));
+      req.end();
+    };
+
+    fetchDirect();
+  });
 });
+

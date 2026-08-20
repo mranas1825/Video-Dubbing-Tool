@@ -48,7 +48,17 @@ def demucs_vocal_separation(audio_path, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     try:
         import torch
-        device_arg = "cuda" if torch.cuda.is_available() else "cpu"
+        if sys.platform == "win32":
+            try:
+                os.add_dll_directory(r"C:\Windows\System32")
+                torch_lib = os.path.join(sys.prefix, "Lib", "site-packages", "torch", "lib")
+                if os.path.exists(torch_lib):
+                    os.add_dll_directory(torch_lib)
+            except Exception:
+                pass
+
+        use_cuda = torch.cuda.is_available()
+        device_arg = "cuda" if use_cuda else "cpu"
         print(f"[Demucs AI] Starting Vocal Separation on Device: '{device_arg.upper()}'...", flush=True)
         cmd = [
             sys.executable, "-m", "demucs.separate",
@@ -60,7 +70,9 @@ def demucs_vocal_separation(audio_path, output_dir):
         # Run Demucs with 60 second timeout
         subprocess.run(cmd, check=True, timeout=60, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-
+        if use_cuda:
+            torch.cuda.empty_cache()
+            print("[GPU Memory Safety] Released Demucs VRAM memory cache.", flush=True)
 
         # Locate separated background track
         base_name = os.path.splitext(os.path.basename(audio_path))[0]
@@ -109,7 +121,7 @@ def mix_audio_tracks(original_video, new_tts_audio, ambient_track, output_video,
             subprocess.run(fallback_cmd, check=True, timeout=15, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         try:
-            filter_complex = f"[1:a]volume=1.0[tts];[2:a]volume={vol_factor:.2f}[amb];[tts][amb]amix=inputs=2:duration=first[aout]"
+            filter_complex = f"[1:a]volume=1.0[tts];[2:a]volume={vol_factor:.2f}[amb];[tts][amb]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
             cmd = [
                 get_ffmpeg_cmd(), "-y",
                 "-i", original_video,

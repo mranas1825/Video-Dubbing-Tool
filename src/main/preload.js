@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   getPresets: () => ipcRenderer.invoke('get-presets'),
   savePreset: (preset) => ipcRenderer.invoke('save-preset', preset),
+  fetchElevenLabsVoice: (data) => ipcRenderer.invoke('fetch-elevenlabs-voice', data),
   onLogUpdate: (callback) => {
     const subscription = (event, value) => callback(value);
     ipcRenderer.on('log-update', subscription);

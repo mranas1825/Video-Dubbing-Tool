@@ -8,6 +8,15 @@ import time
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ["PYTHONWARNINGS"] = "ignore"
 
+if sys.platform == "win32":
+    try:
+        os.add_dll_directory(r"C:\Windows\System32")
+        torch_lib = os.path.join(sys.prefix, "Lib", "site-packages", "torch", "lib")
+        if os.path.exists(torch_lib):
+            os.add_dll_directory(torch_lib)
+    except Exception:
+        pass
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -17,7 +26,7 @@ except Exception:
 try:
     from transcribe import transcribe_audio
     from rewrite import rewrite_script
-    from tts import generate_voiceover
+    from tts import generate_voiceover, generate_segment_aligned_voiceover
     from audio_process import extract_audio, fast_vocal_suppression, demucs_vocal_separation, mix_audio_tracks
     from caption_burn import create_srt_subtitles, burn_subtitles_to_video, create_ass_subtitles
 except ModuleNotFoundError as e:
@@ -106,6 +115,15 @@ def process_dubbing_task(config):
             send_update(task_id, raw_video_path, f"File not found: {base_name}", 5, "failed")
             sys.exit(1)
 
+    # Detect video duration
+    video_duration = 0.0
+    try:
+        import av
+        container = av.open(video_path)
+        video_duration = float(container.duration) / 1000000.0
+        send_log("info", f"Loaded input video file. Total Video Duration: {video_duration:.2f}s")
+    except Exception:
+        pass
 
     base_dir = os.path.dirname(video_path)
     filename = os.path.splitext(os.path.basename(video_path))[0]
@@ -173,10 +191,15 @@ def process_dubbing_task(config):
     send_update(task_id, video_path, "Transcribing speech...", 50)
     spoken_lang = settings.get("spokenLang", "Auto-Detect")
     accuracy = settings.get("whisperAccuracy", "Fast")
+    groq_key = settings.get("groqApiKey") or os.getenv("GROQ_API_KEY")
 
     try:
-        transcript_res = transcribe_audio(original_wav, accuracy=accuracy, spoken_lang=spoken_lang)
-        send_log("info", f"Speech transcribed. Detected language: {transcript_res.get('language')}")
+        transcript_res = transcribe_audio(original_wav, accuracy=accuracy, spoken_lang=spoken_lang, groq_api_key=groq_key)
+        raw_text = transcript_res.get("text", "")
+        raw_segs = transcript_res.get("segments", [])
+        start_t = raw_segs[0].get("start", 0.0) if raw_segs else 0.0
+        end_t = raw_segs[-1].get("end", 0.0) if raw_segs else 0.0
+        send_log("info", f"[STT Stage] Transcribed {len(raw_text)} chars in {len(raw_segs)} segment(s) covering {start_t:.1f}s -> {end_t:.1f}s (Detected: '{transcript_res.get('language')}')")
     except Exception as e:
         send_log("warning", f"Transcription warning: {e}. Using fallback transcript.")
         transcript_res = {
@@ -217,23 +240,30 @@ def process_dubbing_task(config):
         dub_script = rewrite_res.get("rewritten_text")
         segments = rewrite_res.get("segments")
 
-    # STEP 5: Neural TTS Voiceover Generation (80%)
+    send_log("info", f"[Rewrite Stage] Input Segments: {len(transcript_res.get('segments', []))} -> Output Segments: {len(segments)}")
+
+    # STEP 5: Neural TTS Voiceover Generation with Segment Alignment (80%)
     send_update(task_id, video_path, "Generating Neural TTS voiceover...", 80)
     tts_audio_path = os.path.join(temp_dir, f"{filename}_tts_{target_lang}.mp3")
-    paid_key = settings.get("paidTtsKey") or os.getenv("PAID_TTS_KEY")
+    use_elevenlabs = settings.get("useElevenLabs", False)
+    eleven_key = settings.get("elevenLabsApiKey") or settings.get("paidTtsKey") or os.getenv("PAID_TTS_KEY")
+    eleven_voice_id = settings.get("elevenLabsVoiceId") or settings.get("voiceId")
     paid_provider = settings.get("paidTtsProvider", "ElevenLabs")
     voice_gender = settings.get("voiceGender", "Male")
 
     try:
-        tts_res = generate_voiceover(
-            dub_script,
+        tts_res = generate_segment_aligned_voiceover(
+            segments,
             tts_audio_path,
             target_language=target_lang,
             gender=voice_gender,
-            paid_key=paid_key,
-            paid_provider=paid_provider
+            video_duration=video_duration,
+            paid_key=eleven_key,
+            paid_provider=paid_provider,
+            voice_id=eleven_voice_id,
+            use_elevenlabs=use_elevenlabs
         )
-        send_log("info", f"Generated voiceover using engine: {tts_res['engine_used']}")
+        send_log("info", f"[TTS Stage] Generated segment-aligned master voiceover ({tts_res.get('duration_sec', 0):.2f}s) using engine: {tts_res['engine_used']}")
     except Exception as e:
         send_log("error", f"TTS voiceover error: {e}")
         # Create silent dummy MP3 as fallback

@@ -30,6 +30,15 @@ def check_all_dependencies():
             print(f"[FAIL] {pkg_name:<18} -> MISSING")
 
     print("-" * 60)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            print(f"[CUDA GPU OK] NVIDIA GPU Detected: '{torch.cuda.get_device_name(0)}'")
+        else:
+            print("[CUDA GPU WARN] Running on CPU mode (CUDA unavailable)")
+    except Exception:
+        pass
+    print("-" * 60)
     if missing:
         print(f"Status: {len(missing)} package(s) missing!")
         print("To fix, run:")

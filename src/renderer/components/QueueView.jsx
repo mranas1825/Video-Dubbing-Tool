@@ -222,46 +222,48 @@ export default function QueueView({
     setQueue(prev => prev.filter(item => item.status !== 'done'));
   };
 
-  // Caption style preset definitions
+  // Caption style preset definitions (Matching CapCut Text Models)
   const captionPresets = [
-    { id: 'Viral Yellow', label: 'Viral Yellow' },
-    { id: 'Hormozi Bold', label: 'Hormozi Bold' },
-    { id: 'Cyberpunk', label: 'Cyberpunk' },
-    { id: 'Cinema Box', label: 'Cinema Box' },
-    { id: 'MrBeast Fire', label: 'MrBeast Fire' }
+    { id: 'teal_karaoke', label: 'Teal Karaoke Box' },
+    { id: 'classic_white', label: 'Classic White' },
+    { id: 'yellow_stroke', label: 'Yellow Stroke' },
+    { id: 'white_box', label: 'White Black Box' },
+    { id: 'bold_caps_box', label: 'Bold Caps Dark' }
   ];
 
   // Dynamic 5 Caption Presets Live Preview Widget renderer
   const renderCaptionPreview = () => {
-    const currentPreset = settings.captionStyle || 'Hormozi Bold';
+    const currentPreset = settings.captionStyle || 'teal_karaoke';
     
-    let mainStyle = { fontSize: '1.25rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.45rem', transition: 'all 0.3s ease' };
+    let mainStyle = { fontSize: '1.2rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.45rem', transition: 'all 0.3s ease' };
     let wordLook = { color: '#FFFFFF' };
     let wordAt = { color: '#06B6D4' };
     let wordThis = { color: '#FFFFFF' };
     let containerBg = '#0B0C10';
 
-    if (currentPreset === 'Viral Yellow') {
-      wordLook = { color: '#FACC15', textShadow: '2px 2px 0 #000, -1px -1px 0 #000' };
-      wordAt = { color: '#06B6D4', textShadow: '0 0 10px #06B6D4, 2px 2px 0 #000', fontWeight: 900, transform: 'scale(1.18)', display: 'inline-block' };
-      wordThis = { color: '#FACC15', textShadow: '2px 2px 0 #000, -1px -1px 0 #000' };
-    } else if (currentPreset === 'Hormozi Bold') {
-      wordLook = { color: '#FFFFFF', textShadow: '2px 2px 0 #000' };
-      wordAt = { color: '#FACC15', textShadow: '2px 2px 0 #000', transform: 'scale(1.2)', display: 'inline-block' };
-      wordThis = { color: '#FFFFFF', textShadow: '2px 2px 0 #000' };
-    } else if (currentPreset === 'Cyberpunk') {
-      wordLook = { color: '#EC4899', textShadow: '0 0 10px #EC4899' };
-      wordAt = { color: '#06B6D4', textShadow: '0 0 12px #06B6D4, 0 0 20px #06B6D4', transform: 'scale(1.22)', display: 'inline-block' };
-      wordThis = { color: '#EC4899', textShadow: '0 0 10px #EC4899' };
-    } else if (currentPreset === 'Cinema Box') {
+    if (currentPreset === 'teal_karaoke') {
+      containerBg = 'rgba(0,0,0,0.85)';
+      wordLook = { color: '#FFFFFF', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.4)' };
+      wordAt = { color: '#FFFF00', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.5)', transform: 'scale(1.15)', display: 'inline-block' };
+      wordThis = { color: '#FFFFFF', background: '#00D9B3', padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,217,179,0.4)' };
+    } else if (currentPreset === 'classic_white') {
+      wordLook = { color: '#FFFFFF', textShadow: '0 2px 4px rgba(0,0,0,0.8)' };
+      wordAt = { color: '#FACC15', textShadow: '0 2px 4px rgba(0,0,0,0.8)', transform: 'scale(1.18)', display: 'inline-block' };
+      wordThis = { color: '#FFFFFF', textShadow: '0 2px 4px rgba(0,0,0,0.8)' };
+    } else if (currentPreset === 'yellow_stroke') {
+      wordLook = { color: '#FACC15', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000' };
+      wordAt = { color: '#FFFFFF', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000', transform: 'scale(1.18)', display: 'inline-block' };
+      wordThis = { color: '#FACC15', WebkitTextStroke: '1px #000000', textShadow: '2px 2px 0 #000' };
+    } else if (currentPreset === 'white_box') {
       containerBg = 'rgba(0, 0, 0, 0.95)';
       wordLook = { color: '#FFFFFF', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' };
       wordAt = { color: '#FACC15', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid #FACC15', transform: 'scale(1.1)', display: 'inline-block' };
       wordThis = { color: '#FFFFFF', background: '#000000', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' };
-    } else if (currentPreset === 'MrBeast Fire') {
-      wordLook = { color: '#FACC15', textShadow: '0 0 8px #EF4444, 2px 2px 0 #000' };
-      wordAt = { color: '#FFFFFF', textShadow: '0 0 12px #EF4444, 0 0 22px #EF4444', transform: 'scale(1.25)', display: 'inline-block' };
-      wordThis = { color: '#FACC15', textShadow: '0 0 8px #EF4444, 2px 2px 0 #000' };
+    } else if (currentPreset === 'bold_caps_box') {
+      containerBg = 'rgba(17,17,17,0.95)';
+      wordLook = { color: '#FFFFFF', background: 'rgba(30,30,30,0.8)', padding: '3px 8px', borderRadius: '4px' };
+      wordAt = { color: '#FACC15', background: 'rgba(30,30,30,0.9)', padding: '3px 8px', borderRadius: '4px', transform: 'scale(1.15)', display: 'inline-block' };
+      wordThis = { color: '#FFFFFF', background: 'rgba(30,30,30,0.8)', padding: '3px 8px', borderRadius: '4px' };
     }
 
     return (

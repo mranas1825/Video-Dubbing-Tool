@@ -7,3 +7,5 @@ python-dotenv
 ffmpeg-python
 imageio-ffmpeg
 pydub
+groq
+
