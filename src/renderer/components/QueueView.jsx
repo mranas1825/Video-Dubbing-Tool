@@ -63,6 +63,43 @@ export default function QueueView({
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [folderInfo, setFolderInfo] = useState(null); // { folderPath, videoFiles }
+  const [fetchingVoice, setFetchingVoice] = useState(false);
+  const [voiceDetails, setVoiceDetails] = useState(null);
+  const [voiceError, setVoiceError] = useState('');
+
+  const handleFetchVoiceDetails = async () => {
+    const apiKey = settings.elevenLabsApiKey || settings.paidTtsKey || '';
+    const voiceId = settings.elevenLabsVoiceId || '';
+    if (!voiceId || !voiceId.trim()) {
+      setVoiceError('Please enter a valid ElevenLabs Voice ID first.');
+      return;
+    }
+
+    setFetchingVoice(true);
+    setVoiceError('');
+    setVoiceDetails(null);
+
+    if (window.electronAPI && window.electronAPI.fetchElevenLabsVoice) {
+      const res = await window.electronAPI.fetchElevenLabsVoice({ apiKey, voiceId });
+      setFetchingVoice(false);
+      if (res.success) {
+        setVoiceDetails(res.voice);
+      } else {
+        setVoiceError(res.error || 'Failed to fetch voice details.');
+      }
+    } else {
+      setTimeout(() => {
+        setFetchingVoice(false);
+        setVoiceDetails({
+          voice_id: voiceId,
+          name: 'Adam (Preview Demo)',
+          category: 'premade',
+          description: 'Deep, resonant male voice perfect for narrations and dubbing.',
+          preview_url: 'https://storage.googleapis.com/eleven-public-voices/voices/pNInz6obpgDQGcFmaJgB/manifest.json'
+        });
+      }, 1000);
+    }
+  };
 
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
